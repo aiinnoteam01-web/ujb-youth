@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="description" content="의정부시 청년이 신청할 수 있는 의정부시·경기도·전국 지원사업을 한곳에 모았습니다.">
+<title>의정부 청년모아</title>
+<link rel="stylesheet" href="app.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">본문 바로가기</a>
+<div class="notice-bar">공공데이터 활용 사이트 · 의정부시 공식 사이트가 아닙니다 · 신청 전 원문 공고를 꼭 확인하세요</div>
+<header class="site-header">
+  <div class="wrap header-row">
+    <a class="logo" href="#/"><span class="logo-mark" aria-hidden="true">의</span>의정부 청년모아</a>
+    <nav aria-label="주 메뉴" class="nav">
+      <a href="#/" data-nav="home">홈</a>
+      <a href="#/list" data-nav="list">전체 지원사업</a>
+      <a href="#/saved" data-nav="saved">관심 목록 <span id="saved-count" class="pill-count">0</span></a>
+      <a href="#/about" data-nav="about">안내</a>
+    </nav>
+    <p class="updated" id="updated">불러오는 중…</p>
+  </div>
+</header>
+<main id="main" class="wrap" tabindex="-1">
+  <p class="loading">지원사업을 불러오는 중입니다…</p>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <p>자료: 행정안전부 「대한민국 공공서비스(혜택) 정보」(보조금24) · 중소벤처기업부 「중소기업 지원사업 공고 조회」(기업마당, 공공누리 제3유형) · 창업진흥원 「K-Startup 조회서비스」 · 경기도 「일자리 관련 지원정책 정보」(잡아바, 경기데이터드림) — 공공데이터포털·경기데이터드림 Open API</p>
+    <p>가입·로그인·쿠키가 없습니다. 관심 목록과 내 나이는 이 브라우저에만 저장됩니다. 신청 전에는 반드시 원문 공고를 확인하세요.</p>
+  </div>
+</footer>
+<dialog id="detail" aria-labelledby="detail-title"></dialog>
+</body>
+</html>
