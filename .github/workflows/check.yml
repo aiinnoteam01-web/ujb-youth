@@ -1,0 +1,27 @@
+name: check
+
+on:
+  schedule:
+    - cron: "30 0,7 * * *"   # 수집 30분 뒤 (09:30, 16:30 KST)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: data
+      - name: 수집 결과 점검
+        run: |
+          test -f data/status.json || { echo "status.json 없음"; exit 1; }
+          cat data/status.json
+          if grep -q '"ok": false' data/status.json; then
+            echo "::warning::수집에 실패한 출처가 있습니다"
+          fi
+          count=$(python3 -c "import json;print(len(json.load(open('data/items.json'))['items']))")
+          echo "items: $count"
+          [ "$count" -gt 0 ] || { echo "::error::수집 건수가 0건입니다"; exit 1; }
