@@ -1,0 +1,71 @@
+name: collect
+
+on:
+  schedule:
+    - cron: "0 0,7 * * *"   # 매일 09:00, 16:00 KST (cron 은 UTC 기준)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 이전 데이터 가져오기 (data 브랜치)
+        run: |
+          git fetch origin data || true
+          if git rev-parse --verify origin/data >/dev/null 2>&1; then
+            git checkout origin/data -- data/ || true
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r collector/requirements.txt
+
+      - name: 규칙 테스트
+        run: pytest -q
+
+      - name: 수집
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          GG_DATA_KEY: ${{ secrets.GG_DATA_KEY }}
+        working-directory: collector
+        run: python collect.py
+
+      - name: data 브랜치에 커밋
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin data >/dev/null; then
+            git worktree add -B data /tmp/databr origin/data
+          else
+            git worktree add --orphan -b data /tmp/databr
+          fi
+          rm -rf /tmp/databr/data
+          cp -r data /tmp/databr/data
+          cd /tmp/databr
+          git add data
+          git commit -m "data: $(date -u +%Y-%m-%dT%H:%MZ)" || { echo "변경 없음"; exit 0; }
+          git push origin data
+
+      - name: 배포 실행
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref main
+
+      - name: 원본 결과 보관 (90일)
+        uses: actions/upload-artifact@v4
+        with:
+          name: collect-${{ github.run_id }}
+          path: data/
+          retention-days: 90
