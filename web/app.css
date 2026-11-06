@@ -128,3 +128,5 @@ dialog#detail::backdrop { background: rgba(17, 17, 17, .45); }
   .site-header, .notice-bar, .site-footer, .d-actions, .d-close { display: none; }
   dialog#detail { box-shadow: none; }
 }
+.sort-label { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
+.sort-label select { height: 40px; border: 2px solid var(--ink); border-radius: 20px; padding: 0 14px; background: #fff; font-size: 14px; cursor: pointer; }
