@@ -115,9 +115,9 @@
   function saveButton(it) {
     const on = saved.has(it.id);
     return h("button", {
-      class: "save", type: "button", "aria-pressed": on ? "true" : "false",
+      class: "save", type: "button", "data-id": it.id, "aria-pressed": on ? "true" : "false",
       "aria-label": on ? `${it.title} 관심 목록에서 빼기` : `${it.title} 관심 담기`, title: "관심 담기",
-      onclick: (e) => { toggleSave(it.id); const b = e.currentTarget; const now = saved.has(it.id); b.setAttribute("aria-pressed", String(now)); b.setAttribute("aria-label", now ? `${it.title} 관심 목록에서 빼기` : `${it.title} 관심 담기`); },
+      onclick: () => toggleSave(it),
     }, svg(BOOKMARK));
   }
   function itemRow(it) {
@@ -137,7 +137,7 @@
   }
   function meBar() {
     const id = "my-age";
-    const input = h("input", { id, type: "number", min: "15", max: "45", inputmode: "numeric", value: myAge ?? "", placeholder: "27" });
+    const input = h("input", { id, type: "number", min: "15", max: "45", inputmode: "numeric", value: myAge ?? "", placeholder: "내 나이" });
     const apply = () => { const v = input.value.trim(); myAge = v === "" ? null : Math.max(0, Math.min(99, Number(v))); store.set(STORE.age, myAge); render(); };
     input.addEventListener("change", apply);
     return h("div", { class: "me" },
@@ -195,7 +195,7 @@
       const on = (q[key] || "") === val;
       const patch = Object.fromEntries(TILE_KEYS.map((k) => [k, undefined]));
       if (!on) patch[key] = val;
-      return h("button", { class: `tile ${cls}`.trim(), type: "button", "aria-pressed": String(on), onclick: () => set(patch) },
+      return h("button", { class: `tile ${cls}`.trim(), type: "button", "data-tile": key, "aria-pressed": String(on), onclick: () => set(patch) },
         h("span", { class: "tile-label" }, label), h("span", { class: "tile-num" }, n.toLocaleString()));
     };
     const chipRow = (label, key, options) => h("div", { class: "frow", role: "group", "aria-label": label },
@@ -222,13 +222,13 @@
           h("button", { class: "chip", type: "button", "aria-pressed": String(!!q.soon), onclick: () => set({ soon: q.soon ? undefined : "1" }) }, "7일 안에 마감"),
           h("button", { class: "chip", type: "button", "aria-pressed": String(!!q.saved), onclick: () => set({ saved: q.saved ? undefined : "1" }) }, "관심 담은 것만"),
           q.date ? h("button", { class: "chip", type: "button", "aria-pressed": "true", onclick: () => set({ date: undefined }) }, `${fmt(q.date)} 마감 ✕`) : null,
-          h("label", { class: "sr-only", for: "sort" }, "정렬"),
-          h("select", { id: "sort", onchange: (e) => set({ sort: e.target.value }) },
-            Object.entries(SORTS).map(([v, t]) => h("option", { value: v, selected: (q.sort || "deadline") === v }, t))),
           active ? h("button", { class: "btn", type: "button", onclick: () => go({ sort: q.sort }) }, "조건 지우기") : null)),
       h("div", { class: "result-bar" },
         h("h2", {}, `지원사업 ${list.length.toLocaleString()}건`),
-        myAge !== null ? h("span", { class: "muted" }, `만 ${myAge}세 조건 적용 중`) : null),
+        myAge !== null ? h("span", { class: "muted" }, `만 ${myAge}세 조건 적용 중`) : null,
+        h("label", { class: "sort-label", for: "sort" }, "정렬",
+          h("select", { id: "sort", onchange: (e) => set({ sort: e.target.value }) },
+            Object.entries(SORTS).map(([v, t]) => h("option", { value: v, selected: (q.sort || "deadline") === v }, t))))),
       itemList(list.slice(0, shown), q.saved ? "아직 담은 지원사업이 없습니다. 하트 단추를 눌러 담아 보세요." : null),
       list.length > shown ? h("button", { class: "btn more", type: "button", onclick: () => { shown += PAGE; render(); } },
         `더 보기 (${shown.toLocaleString()} / ${list.length.toLocaleString()}건)`) : null,
@@ -280,9 +280,17 @@
   }
 
   // ---------- 관심 ----------
-  function toggleSave(id) {
-    saved.has(id) ? saved.delete(id) : saved.add(id);
+  function toggleSave(it) {
+    saved.has(it.id) ? saved.delete(it.id) : saved.add(it.id);
     store.set(STORE.saved, [...saved]);
+    const now = saved.has(it.id);
+    document.querySelectorAll(".save").forEach((b) => {
+      if (b.dataset.id !== it.id) return;
+      b.setAttribute("aria-pressed", String(now));
+      b.setAttribute("aria-label", now ? `${it.title} 관심 목록에서 빼기` : `${it.title} 관심 담기`);
+    });
+    const num = document.querySelector('[data-tile="saved"] .tile-num');
+    if (num) num.textContent = ITEMS.filter((x) => saved.has(x.id)).length.toLocaleString();
     if (parse().q.saved) render();
   }
 
