@@ -66,7 +66,7 @@
     s.innerHTML = paths; // 고정 문자열만 사용 (데이터 아님)
     return s;
   }
-  const BOOKMARK = '<path d="M6 3h12v18l-6-4-6 4z"/>';
+  const BOOKMARK = '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>';
 
   // ---------- 필터 ----------
   function ageOk(it) {
@@ -78,12 +78,14 @@
   }
   const norm = (s) => (s || "").replace(/\s+/g, "").toLowerCase();
   function matches(it, q) {
+    if (it.end && !it.always && it.end < TODAY) return false; // 수집 뒤 마감된 공고
     if (q.scope && it.scope !== q.scope) return false;
     if (q.cat && it.category !== q.cat) return false;
     if (q.state && state(it) !== q.state) return false;
     if (q.soon) { const d = dLeft(it); if (d === null || d > 7) return false; }
     if (q.date && it.end !== q.date) return false;
     if (q.mine && !ageOk(it)) return false;
+    if (q.saved && !saved.has(it.id)) return false;
     if (q.q) {
       const hay = norm(`${it.title} ${it.agency} ${it.target_text} ${it.summary}`);
       if (!norm(q.q).split(/[,]/).every((w) => hay.includes(w))) return false;
@@ -114,7 +116,7 @@
     const on = saved.has(it.id);
     return h("button", {
       class: "save", type: "button", "aria-pressed": on ? "true" : "false",
-      "aria-label": on ? `${it.title} 관심 목록에서 빼기` : `${it.title} 관심 담기`,
+      "aria-label": on ? `${it.title} 관심 목록에서 빼기` : `${it.title} 관심 담기`, title: "관심 담기",
       onclick: (e) => { toggleSave(it.id); const b = e.currentTarget; const now = saved.has(it.id); b.setAttribute("aria-pressed", String(now)); b.setAttribute("aria-label", now ? `${it.title} 관심 목록에서 빼기` : `${it.title} 관심 담기`); },
     }, svg(BOOKMARK));
   }
@@ -135,21 +137,22 @@
   }
   function meBar() {
     const id = "my-age";
-    const input = h("input", { id, type: "number", min: "15", max: "45", inputmode: "numeric", value: myAge ?? "", placeholder: "예: 27" });
+    const input = h("input", { id, type: "number", min: "15", max: "45", inputmode: "numeric", value: myAge ?? "", placeholder: "27" });
     const apply = () => { const v = input.value.trim(); myAge = v === "" ? null : Math.max(0, Math.min(99, Number(v))); store.set(STORE.age, myAge); render(); };
     input.addEventListener("change", apply);
     return h("div", { class: "me" },
-      h("strong", {}, "내 조건"),
-      h("label", { for: id }, "만 나이"), input,
+      h("strong", {}, "나는 만"),
+      h("label", { for: id, class: "sr-only" }, "만 나이"), input,
+      h("strong", {}, "살이에요"),
       h("button", { class: "btn", type: "button", onclick: apply }, "적용"),
       myAge !== null ? h("button", { class: "btn", type: "button", onclick: () => { myAge = null; store.set(STORE.age, null); render(); } }, "지우기") : null,
-      h("span", { class: "muted" }, "이 브라우저에만 저장돼요"),
+      h("span", { class: "muted" }, "이 브라우저에만 기억해요"),
     );
   }
-  function searchForm(initial) {
-    const input = h("input", { type: "search", name: "q", value: initial || "", placeholder: "월세, 면접, 창업처럼 낱말로 찾기", "aria-label": "지원사업 검색" });
-    return h("form", { class: "search", role: "search", onsubmit: (e) => { e.preventDefault(); go({ q: input.value.trim() }); } },
-      input, h("button", { class: "btn btn-primary", type: "submit" }, "검색"));
+  function searchForm(q) {
+    const input = h("input", { type: "search", name: "q", value: q.q || "", placeholder: "월세? 면접? 창업? 궁금한 거 쳐 보기", "aria-label": "지원사업 검색" });
+    return h("form", { class: "search", role: "search", onsubmit: (e) => { e.preventDefault(); go({ ...q, q: input.value.trim() || undefined }); } },
+      input, h("button", { class: "btn btn-primary", type: "submit" }, "찾기"));
   }
 
   // ---------- 달력 ----------
@@ -177,112 +180,59 @@
       h("p", { class: "muted" }, "색이 진할수록 마감이 몰린 날 · 날짜를 누르면 그날 마감 목록"));
   }
 
-  // ---------- 화면: 홈 ----------
-  function viewHome() {
+  // ---------- 화면: 한 화면 구성 ----------
+  // 순서: 요약 타일(누르면 아래 목록이 바뀜) → 검색 → 내 조건 → 조건(구분·분야·상태·기타·정렬) → 목록
+  const TILE_KEYS = ["soon", "scope", "state", "saved"];
+  const PAGE = 30;
+  let shown = PAGE;
+  function viewMain(q) {
     const live = ITEMS.filter(ageOk);
-    const count = (q) => live.filter((it) => matches(it, q)).length;
-    const soon = sortItems(live.filter((it) => matches(it, { soon: true })), "deadline");
-    const deadlineList = sortItems(live.filter((it) => state(it) === "open"), "deadline").slice(0, 8);
-    const popular = sortItems(live, "views").slice(0, 5);
+    const count = (f) => live.filter((it) => matches(it, f)).length;
+    const list = sortItems(ITEMS.filter((it) => matches(it, { ...q, mine: true })), q.sort || "deadline");
+    const set = (patch) => go({ ...q, ...patch });
 
-    return [
-      h("section", { class: "hero" },
-        h("h1", {}, "의정부 청년이 지금 신청할 수 있는 지원 ", h("span", { class: "accent" }, `${live.length.toLocaleString()}건`)),
-        h("p", { class: "muted" }, "의정부시 · 경기도 전체 · 전국 대상 청년 지원사업만 모았습니다. 다른 시·군 사업은 뺐어요."),
-        searchForm(""),
-        meBar(),
-      ),
-      h("section", { class: "situations", "aria-labelledby": "sit-h" },
-        h("h2", { id: "sit-h" }, "지금 어떤 상황인가요?"),
-        h("div", { class: "sit-grid" }, SITUATIONS.map((s) =>
-          h("a", { class: "sit", href: `#/list?cat=${encodeURIComponent(s.cat)}` },
-            svg(s.icon), h("span", { class: "sit-name" }, s.name), h("span", { class: "sit-desc" }, s.desc),
-            h("span", { class: "sit-count" }, `${count({ cat: s.cat })}건`)))),
-      ),
-      h("section", { class: "tiles", "aria-label": "한눈에 보기" },
-        tile("7일 안에 마감", soon.length, "#/list?soon=1", "hot"),
-        tile("의정부시 사업", count({ scope: "uijeongbu" }), "#/list?scope=uijeongbu", "ujb"),
-        tile("경기도 사업", count({ scope: "gyeonggi" }), "#/list?scope=gyeonggi", "gg"),
-        tile("전국 대상", count({ scope: "national" }), "#/list?scope=national", ""),
-        tile("곧 접수 시작", count({ state: "upcoming" }), "#/list?state=upcoming", ""),
-        tile("관심 담음", saved.size, "#/saved", ""),
-      ),
-      h("div", { class: "cols" },
-        h("section", { class: "col-main", "aria-labelledby": "dl-h" },
-          h("div", { class: "section-head" }, h("h2", { id: "dl-h" }, "마감이 가까운 지원사업"), h("a", { href: "#/list?sort=deadline" }, "모두 보기")),
-          itemList(deadlineList, "마감일이 정해진 지원사업이 없습니다.")),
-        h("aside", { class: "col-side" },
-          calendar(),
-          h("section", { class: "panel", "aria-labelledby": "pop-h" },
-            h("h2", { id: "pop-h" }, "많이 찾는 지원사업"),
-            popular.length ? h("ol", { class: "popular" }, popular.map((it) => h("li", {}, h("button", { class: "item-title", type: "button", onclick: () => openDetail(it.id) }, it.title)))) : h("p", { class: "muted" }, "아직 자료가 없습니다."))),
-      ),
-    ];
-  }
-  function tile(label, n, href, cls) {
-    return h("a", { class: `tile ${cls}`.trim(), href }, h("span", { class: "tile-label" }, label), h("span", { class: "tile-num" }, n.toLocaleString()));
-  }
-
-  // ---------- 화면: 목록 ----------
-  function viewList(q) {
-    const list = sortItems(ITEMS.filter((it) => matches(it, { ...q, mine: q.mine !== "0" })), q.sort || "deadline");
+    const tileBtn = (label, n, key, val, cls) => {
+      const on = (q[key] || "") === val;
+      const patch = Object.fromEntries(TILE_KEYS.map((k) => [k, undefined]));
+      if (!on) patch[key] = val;
+      return h("button", { class: `tile ${cls}`.trim(), type: "button", "aria-pressed": String(on), onclick: () => set(patch) },
+        h("span", { class: "tile-label" }, label), h("span", { class: "tile-num" }, n.toLocaleString()));
+    };
     const chipRow = (label, key, options) => h("div", { class: "frow", role: "group", "aria-label": label },
       h("span", { class: "flabel" }, label),
-      [["", "전체"], ...options].map(([v, t]) => h("button", { class: "chip", type: "button", "aria-pressed": String((q[key] || "") === v), onclick: () => go({ ...q, [key]: v || undefined }) }, t)));
-    const title = q.date ? `${fmt(q.date)} 마감` : q.cat ? `${q.cat} 지원사업` : q.soon ? "7일 안에 마감" : "전체 지원사업";
+      [["", "전체"], ...options].map(([v, t]) => h("button", { class: "chip", type: "button", "aria-pressed": String((q[key] || "") === v), onclick: () => set({ [key]: v || undefined }) }, t)));
+    const active = TILE_KEYS.some((k) => q[k]) || q.cat || q.q || q.date;
+
     return [
-      h("section", { class: "hero" }, h("h1", {}, title), searchForm(q.q), meBar()),
+      h("section", { class: "tiles", "aria-label": "한눈에 보기 (누르면 아래 목록이 바뀝니다)" },
+        tileBtn("7일 안에 마감", count({ soon: true }), "soon", "1", "hot"),
+        tileBtn("의정부시 사업", count({ scope: "uijeongbu" }), "scope", "uijeongbu", "ujb"),
+        tileBtn("경기도 사업", count({ scope: "gyeonggi" }), "scope", "gyeonggi", "gg"),
+        tileBtn("전국 대상", count({ scope: "national" }), "scope", "national", ""),
+        tileBtn("곧 접수 시작", count({ state: "upcoming" }), "state", "upcoming", ""),
+        tileBtn("관심 담음", ITEMS.filter((it) => saved.has(it.id)).length, "saved", "1", ""),
+      ),
+      h("section", { class: "hero" }, searchForm(q), meBar()),
       h("section", { class: "filters", "aria-label": "조건" },
         chipRow("구분", "scope", Object.entries(SCOPE)),
         chipRow("분야", "cat", SITUATIONS.map((s) => [s.cat, s.cat])),
         chipRow("신청 상태", "state", [["open", "접수 중"], ["upcoming", "접수 예정"], ["always", "상시·예산 소진 시"]]),
         h("div", { class: "frow" },
           h("span", { class: "flabel" }, "기타"),
-          h("button", { class: "chip", type: "button", "aria-pressed": String(!!q.soon), onclick: () => go({ ...q, soon: q.soon ? undefined : "1" }) }, "7일 안에 마감"),
-          q.date ? h("button", { class: "chip", type: "button", "aria-pressed": "true", onclick: () => go({ ...q, date: undefined }) }, `${fmt(q.date)} 마감 ✕`) : null,
+          h("button", { class: "chip", type: "button", "aria-pressed": String(!!q.soon), onclick: () => set({ soon: q.soon ? undefined : "1" }) }, "7일 안에 마감"),
+          h("button", { class: "chip", type: "button", "aria-pressed": String(!!q.saved), onclick: () => set({ saved: q.saved ? undefined : "1" }) }, "관심 담은 것만"),
+          q.date ? h("button", { class: "chip", type: "button", "aria-pressed": "true", onclick: () => set({ date: undefined }) }, `${fmt(q.date)} 마감 ✕`) : null,
           h("label", { class: "sr-only", for: "sort" }, "정렬"),
-          h("select", { id: "sort", onchange: (e) => go({ ...q, sort: e.target.value }) },
+          h("select", { id: "sort", onchange: (e) => set({ sort: e.target.value }) },
             Object.entries(SORTS).map(([v, t]) => h("option", { value: v, selected: (q.sort || "deadline") === v }, t))),
-          h("a", { href: "#/list", class: "btn" }, "조건 지우기"))),
-      h("div", { class: "result-bar" }, h("h2", {}, `${list.length.toLocaleString()}건`),
+          active ? h("button", { class: "btn", type: "button", onclick: () => go({ sort: q.sort }) }, "조건 지우기") : null)),
+      h("div", { class: "result-bar" },
+        h("h2", {}, `지원사업 ${list.length.toLocaleString()}건`),
         myAge !== null ? h("span", { class: "muted" }, `만 ${myAge}세 조건 적용 중`) : null),
-      itemList(list),
+      itemList(list.slice(0, shown), q.saved ? "아직 담은 지원사업이 없습니다. 하트 단추를 눌러 담아 보세요." : null),
+      list.length > shown ? h("button", { class: "btn more", type: "button", onclick: () => { shown += PAGE; render(); } },
+        `더 보기 (${shown.toLocaleString()} / ${list.length.toLocaleString()}건)`) : null,
     ];
-  }
-
-  // ---------- 화면: 관심 / 안내 ----------
-  function viewSaved() {
-    const list = sortItems([...saved].map((id) => byId.get(id)).filter(Boolean), "deadline");
-    const gone = [...saved].filter((id) => !byId.has(id)).length;
-    return [
-      h("section", { class: "hero" }, h("h1", {}, "관심 목록"), h("p", { class: "muted" }, "마감이 가까운 순서입니다. 이 브라우저에만 저장돼요.")),
-      gone ? h("p", { class: "muted" }, `담아 둔 ${gone}건은 마감되었거나 목록에서 사라졌습니다.`) : null,
-      itemList(list, "아직 담은 지원사업이 없습니다. 목록에서 책갈피 단추를 눌러 담아 보세요."),
-    ];
-  }
-  function viewAbout() {
-    const rows = STATUS ? Object.values(STATUS.sources) : [];
-    return [h("section", { class: "about" },
-      h("h1", {}, "안내"),
-      h("p", {}, "의정부 청년모아는 공공데이터포털·경기데이터드림의 공개 API를 하루 두 번(09:00·16:00) 모아, 의정부시에 사는 청년(만 19~39세)이 신청할 수 있는 지원사업만 정리해 보여 줍니다. 의정부시 공식 사이트가 아니며, 신청 전에는 반드시 원문 공고를 확인하세요."),
-      h("h2", {}, "무엇을 보여 주나요?"),
-      h("ul", {},
-        h("li", {}, "의정부시 사업 — 의정부시가 소관하는 사업"),
-        h("li", {}, "경기도 사업 — 경기도 전체 또는 의정부를 포함한 지역 대상 사업"),
-        h("li", {}, "전국 사업 — 지역 제한이 없는 중앙부처·공공기관 사업"),
-        h("li", {}, "다른 시·군·도만 대상인 사업, 이미 마감된 공고는 뺍니다")),
-      h("h2", {}, "자료 출처와 최근 수집"),
-      h("table", {},
-        h("thead", {}, h("tr", {}, h("th", { scope: "col" }, "출처"), h("th", { scope: "col" }, "상태"), h("th", { scope: "col" }, "의정부 청년 해당"))),
-        h("tbody", {}, rows.map((s) => h("tr", {}, h("td", {}, s.name),
-          h("td", {}, s.ok ? h("span", { class: "ok" }, "정상") : h("span", { class: "fail" }, "수집 실패 (이전 자료 표시)")),
-          h("td", {}, `${(s.kept || 0).toLocaleString()}건${s.fetched ? ` / 전체 ${s.fetched.toLocaleString()}건` : ""}`))))),
-      h("p", { class: "muted" }, `최근 수집: ${UPDATED || "-"}`),
-      h("h2", {}, "개인정보"),
-      h("p", {}, "가입·로그인·쿠키·방문 분석이 없습니다. 관심 목록과 내 나이는 이 브라우저 안에만 저장되고 서버로 보내지 않습니다."),
-      h("h2", {}, "이용 조건"),
-      h("p", {}, "기업마당 공고는 공공누리 제3유형(출처표시·변경금지)에 따라 원문 내용을 고치지 않고 출처와 함께 보여 줍니다."),
-    )];
   }
 
   // ---------- 상세 ----------
@@ -333,7 +283,7 @@
   function toggleSave(id) {
     saved.has(id) ? saved.delete(id) : saved.add(id);
     store.set(STORE.saved, [...saved]);
-    document.getElementById("saved-count").textContent = saved.size;
+    if (parse().q.saved) render();
   }
 
   // ---------- 주소(해시) ----------
@@ -351,29 +301,29 @@
   }
   function go(q) {
     const s = new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== "")).toString();
-    location.hash = `#/list${s ? "?" + s : ""}`;
+    location.hash = `#/${s ? "?" + s : ""}`;
+  }
+
+  // ---------- 바닥글 수집 상태 ----------
+  function renderStatus() {
+    const box = document.getElementById("source-status");
+    if (!box || !STATUS) return;
+    box.replaceChildren(...Object.values(STATUS.sources).map((s) =>
+      h("span", { class: s.ok ? "ok" : "fail" }, `${s.name} ${s.ok ? `${(s.kept || 0).toLocaleString()}건` : "수집 실패(이전 자료)"}`)));
   }
 
   // ---------- 그리기 ----------
   function render() {
-    const { path, q } = parse();
+    const { q } = parse();
     const main = document.getElementById("main");
-    const view = path === "/list" ? viewList(q) : path === "/saved" ? viewSaved() : path === "/about" ? viewAbout() : viewHome();
-    main.replaceChildren(...view.filter(Boolean));
-    document.querySelectorAll("[data-nav]").forEach((a) => {
-      const on = (a.dataset.nav === "home" && path === "/") || `/${a.dataset.nav}` === path;
-      on ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current");
-    });
-    document.getElementById("saved-count").textContent = saved.size;
+    main.replaceChildren(...viewMain(q).filter(Boolean));
     if (q.id) openDetail(q.id, false); else closeDetail();
   }
-
-  let lastPath = null;
+  let lastQuery = "";
   window.addEventListener("hashchange", () => {
-    const { path } = parse();
+    const query = location.hash.replace(/[?&]id=[^&]*/, "");
+    if (query !== lastQuery) { shown = PAGE; lastQuery = query; }
     render();
-    if (path !== lastPath) { window.scrollTo(0, 0); document.getElementById("main").focus({ preventScroll: true }); }
-    lastPath = path;
   });
 
   document.addEventListener("DOMContentLoaded", async () => {
@@ -395,7 +345,7 @@
       document.getElementById("main").replaceChildren(h("p", { class: "empty" }, "아직 수집된 자료가 없습니다. 첫 수집이 끝나면 지원사업이 표시됩니다."));
       return;
     }
-    lastPath = parse().path;
+    renderStatus();
     render();
   });
 })();
