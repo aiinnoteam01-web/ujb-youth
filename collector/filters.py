@@ -68,6 +68,10 @@ def classify(item: dict) -> str:
         return "exclude"
     if region_text.strip() in ("", "전국") or "전국" in region_text:
         return "national"
+    # 기업마당처럼 지역 태그를 여러 시·도 나열해 '전국'을 표시하는 경우
+    provinces = REGION["other_provinces"] + REGION["gyeonggi"]["names"]
+    if sum(1 for p in set(provinces) if p in region_text) >= 3:
+        return "national"
     if _has_any(region_text, ujb["names"]):
         return "uijeongbu"
     if _has_any(region_text, REGION["gyeonggi"]["names"]):
