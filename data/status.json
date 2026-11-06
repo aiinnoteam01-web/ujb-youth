@@ -1,24 +1,26 @@
 {
- "updated_at": "2026-11-06T16:30+09:00",
+ "updated_at": "2026-11-06T17:09+09:00",
  "sources": {
   "gov24": {
    "name": "보조금24",
    "ok": true,
    "fetched": 10942,
    "kept": 259,
-   "seconds": 20.3
+   "seconds": 25.0
   },
   "bizinfo": {
    "name": "기업마당",
-   "ok": false,
-   "error": "HTTPSConnectionPool(host='apis.data.go.kr', port=443): Max retries exceeded with url: /1421000/bizinfo/pblancBsnsService?serviceKey=QV2KCkNj07RXywkkUMMZeqfBlfrCbkDBzsL%2B9kl5C6IimN1tIJiQlGvR6QyY92RRwA",
-   "kept": 0
+   "ok": true,
+   "fetched": 1373,
+   "kept": 11,
+   "seconds": 14.6
   },
   "kstartup": {
    "name": "K-Startup",
-   "ok": false,
-   "error": "HTTPSConnectionPool(host='apis.data.go.kr', port=443): Max retries exceeded with url: /B552735/kisedKstartupService01/getAnnouncementInformation01?serviceKey=QV2KCkNj07RXywkkUMMZeqfBlfrCbkDBzsL%2B9kl5",
-   "kept": 90
+   "ok": true,
+   "fetched": 214,
+   "kept": 90,
+   "seconds": 2.7
   },
   "jobaba": {
    "name": "경기도 잡아바",
