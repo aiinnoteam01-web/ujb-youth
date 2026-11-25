@@ -1,33 +1,33 @@
 {
- "updated_at": "2026-11-24T17:21+09:00",
+ "updated_at": "2026-11-25T09:50+09:00",
  "sources": {
   "gov24": {
    "name": "보조금24",
    "ok": true,
    "fetched": 10895,
    "kept": 257,
-   "seconds": 19.2
+   "seconds": 21.6
   },
   "bizinfo": {
    "name": "기업마당",
    "ok": true,
-   "fetched": 1315,
+   "fetched": 1306,
    "kept": 10,
-   "seconds": 7.1
+   "seconds": 8.4
   },
   "kstartup": {
    "name": "K-Startup",
    "ok": true,
-   "fetched": 158,
-   "kept": 73,
-   "seconds": 1.6
+   "fetched": 175,
+   "kept": 83,
+   "seconds": 2.2
   },
   "jobaba": {
    "name": "경기도 잡아바",
    "ok": true,
-   "fetched": 193,
+   "fetched": 195,
    "kept": 17,
-   "seconds": 1.2
+   "seconds": 1.0
   }
  }
 }
