@@ -1,26 +1,26 @@
 {
- "updated_at": "2026-11-27T09:54+09:00",
+ "updated_at": "2026-11-27T17:22+09:00",
  "sources": {
   "gov24": {
    "name": "보조금24",
    "ok": true,
    "fetched": 10898,
    "kept": 257,
-   "seconds": 26.7
+   "seconds": 29.1
   },
   "bizinfo": {
    "name": "기업마당",
    "ok": true,
-   "fetched": 1318,
+   "fetched": 1339,
    "kept": 11,
-   "seconds": 8.8
+   "seconds": 10.7
   },
   "kstartup": {
    "name": "K-Startup",
    "ok": true,
    "fetched": 169,
    "kept": 80,
-   "seconds": 2.7
+   "seconds": 2.6
   },
   "jobaba": {
    "name": "경기도 잡아바",
